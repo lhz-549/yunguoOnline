@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.hz.online.common.dto.ResponseResult;
 import com.hz.online.entity.*;
 import com.hz.online.mapper.*;
+import com.hz.online.utils.SumUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -97,7 +98,18 @@ public class OrderitemsService  {
 
     public ResponseResult<List<OrderItemDto>> allorderByuserid(String userid){
         List<OrderItemDto> orderItemDtos = orderitemsMapper.allorderByuserid(userid);
-        return ResponseResult.success(orderItemDtos);
+        Map<String, Object> totle = SumUtils.calculateSums(orderItemDtos,
+                Arrays.asList("price","quantity","selledQuantity","stockQuantity"));
+//        BigDecimal totalAmount = orderItemDtos.stream()
+//                .map(OrderItemDto::getPrice)
+//                .filter(Objects::nonNull)
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("orderItemDtos",orderItemDtos);
+        map.put("totle",totle);
+        return ResponseResult.success(map);
+//        return ResponseResult.success(orderItemDtos);
     }
 
     public ResponseResult<List<OrderItemDto>> allorderByuseridandcondition(String userid,String pname){

@@ -1,6 +1,8 @@
 package com.hz.online.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hz.online.common.dto.ResponseResult;
 import com.hz.online.entity.User;
 import com.hz.online.mapper.UserMapper;
@@ -42,6 +44,13 @@ public class UserService {
     public ResponseResult<User> selectUser(){
         List<User> users = userMapper.selectList(null);
         return ResponseResult.success(users);
+    }
+    public ResponseResult<User> getUserPage(int pageNum,  int pageSize, String username){
+        Page<User> page = new Page<>(pageNum, pageSize);
+//        Page<User> userPage = userMapper.selectPage(page, null);
+
+        IPage<User> userPage = userMapper.selectUserList(page, username);
+        return ResponseResult.success(userPage);
     }
 
     public ResponseResult adduser(User user){

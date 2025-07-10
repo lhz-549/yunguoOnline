@@ -28,7 +28,7 @@ spring:
     # 登录账户
     username: 1115406904@qq.com
     # 登录密码
-    password: "ofsbmrrjytnjfdic"
+    password: "xfabjgggstdoghch"
     # 端口
     port: 465
     # 默认编码
@@ -70,4 +70,11 @@ auth:
 #  z4SGsCY0rsk0On0cGAyUjMI5nA0agT6t
 #upload:
 #  directory: G:\\图
+
+minio:
+  endpoint: http://localhost:10005
+  accessKey: minioadmin
+  secretKey: minioadmin
+  bucketName: test-bucket
+
 

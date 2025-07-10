@@ -44,15 +44,16 @@ public class EmailSendService {
         String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1000000));
 
         // 邮件正文，第二个参数表示是否是HTML正文
-        helper.setText(buildContent(code)+"<br/> 勿忘查看您的附件壁纸！", true);
+        helper.setText(buildContent(code)+"<br/> 请查看您的验证码！", true);
+//        helper.setText(buildContent(code)+"<br/> 勿忘查看您的附件壁纸！", true);
         // 添加一个附件，指定附件名称、文件的 Inputstream 流 以及 Content-Type
 //        helper.addAttachment("test.txt",
 //                () -> Files.newInputStream(Paths.get(
 //                        "F:\\zhuomian\\新建文本文档.txt")),
 //                "application/octet-stream");
-        helper.addAttachment("test.jpg",new File("G:\\图\\水果\\ds3.jpg"));
+//        helper.addAttachment("test.jpg",new File("G:\\图\\水果\\ds3.jpg"));
         // 发送
-        //javaMailSender.send(message);
+        javaMailSender.send(message);
         if(!stringRedisTemplate.hasKey(objto))
             stringRedisTemplate.opsForValue().set(objto,code,3,TimeUnit.MINUTES);
         log.info(objto+"所对应的验证码："+code);

@@ -39,6 +39,14 @@ public class UserController {
     public ResponseResult<User> selectall(){
         return userService.selectUser();
     }
+
+    @GetMapping("/all2")
+    public ResponseResult<User> selectall2(@RequestParam int pageNum,
+                                           @RequestParam int pageSize,
+                                           @RequestParam String username){
+        return userService.getUserPage(pageNum, pageSize, username);
+    }
+
     @PostMapping("/adduser")
     public ResponseResult adduser(@RequestBody User user){
         return userService.adduser(user);
