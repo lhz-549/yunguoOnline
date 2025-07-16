@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -34,6 +35,9 @@ public class ExcelExportService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private ThreadPoolTaskExecutor threadPoolTaskExecutor;
 
     // 线程池控制导出任务
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
@@ -139,6 +143,7 @@ public class ExcelExportService {
 
 
     public String exportOrdersAsync2() {
+        //redis 加入时间开销
         String taskId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
 
@@ -234,6 +239,107 @@ public class ExcelExportService {
                 }
             }
         }, executor);
+
+        return taskId;
+    }
+
+    public String exportOrdersAsync3() {
+        //redis 加入时间开销
+        String taskId = UUID.randomUUID().toString();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 初始状态：处理中
+        saveTaskStatus2(taskId, "PROCESSING", null, now);
+
+        CompletableFuture.runAsync(() -> {
+            File file = null;
+            ExcelWriter excelWriter = null;
+
+            try {
+                file = File.createTempFile("orders_" + taskId.substring(0, 8), ".xlsx");
+                file.deleteOnExit();
+
+                excelWriter = EasyExcel.write(file, OrderExcelDTO.class)
+                        .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                        .build();
+
+                int sheetLimit = 200_000;  // 每个sheet最大行数
+                int batchSize = 10000;      // 分页大小
+                Long lastId = 0L;          // 滚动分页游标
+                int sheetIndex = 1;
+                boolean hasMore = true;
+
+                List<OrderExcelDTO> currentSheetData = new ArrayList<>();
+
+                while (hasMore) {
+                    Long finalLastId = lastId;
+
+                    // 单线程分页，线程池异步查询转换
+                    Future<List<OrderExcelDTO>> future = threadPoolTaskExecutor.submit(() -> {
+                        List<Orders> orders = ordersService.lambdaQuery()
+                                .gt(Orders::getId, finalLastId)
+                                .orderByAsc(Orders::getId)
+                                .last("limit " + batchSize)
+                                .list();
+
+                        List<OrderExcelDTO> list = new ArrayList<>();
+                        for (Orders order : orders) {
+                            OrderExcelDTO dto = new OrderExcelDTO();
+                            BeanUtils.copyProperties(order, dto);
+                            list.add(dto);
+                        }
+                        return list;
+                    });
+
+                    List<OrderExcelDTO> batch = future.get();
+
+                    if (batch.isEmpty()) {
+                        hasMore = false;
+                    } else {
+                        currentSheetData.addAll(batch);
+                        lastId = batch.get(batch.size() - 1).getId();
+
+                        // 满足写入条件，分批写sheet
+                        while (currentSheetData.size() >= sheetLimit) {
+                            List<OrderExcelDTO> sheetData = new ArrayList<>(currentSheetData.subList(0, sheetLimit));
+                            WriteSheet sheet = EasyExcel.writerSheet("订单数据_" + sheetIndex++).build();
+                            excelWriter.write(sheetData, sheet);
+                            currentSheetData = new ArrayList<>(currentSheetData.subList(sheetLimit, currentSheetData.size()));
+                        }
+                    }
+                }
+
+                // 写入剩余数据
+                if (!currentSheetData.isEmpty()) {
+                    WriteSheet sheet = EasyExcel.writerSheet("订单数据_" + sheetIndex++).build();
+                    excelWriter.write(currentSheetData, sheet);
+                }
+
+                // 关闭写入
+                excelWriter.finish();
+
+                // 上传 MinIO
+                String fileUrl = minioUtil.upload(file,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+                // 更新导出完成状态
+                saveTaskStatus2(taskId, "COMPLETED", fileUrl, now);
+
+            } catch (Exception e) {
+                log.error("导出失败", e);
+                saveTaskStatus2(taskId, "FAILED", null, now);
+            } finally {
+                if (excelWriter != null) {
+                    try {
+                        excelWriter.finish();
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (file != null && file.exists()) {
+                    file.delete();
+                }
+            }
+        }, threadPoolTaskExecutor);
 
         return taskId;
     }
