@@ -18,6 +18,14 @@ public class JWTInterceptors implements HandlerInterceptor {
         Map<String,Object> map = new HashMap<>();
         // 获取请求头中令牌
         String token = request.getHeader("token");
+        if (token == null || token.trim().isEmpty()) {
+            map.put("msg", "缺少 token！");
+            map.put("state", false);
+            String json = new ObjectMapper().writeValueAsString(map);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().println(json);
+            return false;
+        }
         try {
             // 验证令牌
             JwtUtils.verify(token);

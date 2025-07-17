@@ -2,9 +2,8 @@ package com.hz.online.test;
 
 import java.io.File;
 import java.util.*;
-import java.util.stream.Collectors;
 
-public class test1 {
+public class test {
 
     public static void main2(String[] args) {
         List<String> list = new ArrayList<>();
@@ -77,5 +76,4 @@ public class test1 {
             System.out.println(dir.getAbsolutePath());
         }
     }
-
 }
